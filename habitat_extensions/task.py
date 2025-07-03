@@ -55,6 +55,7 @@ class VLNCEDatasetV1(Dataset):
         if config is None:
             return
 
+        # "data/datasets/R2R_VLNCE_v1-3_preprocessed/{split}/{split}.json.gz".format(split="train") -> data/datasets/R2R_VLNCE_v1-3_preprocessed/train/train.json.gz
         dataset_filename = config.DATA_PATH.format(split=config.SPLIT)
         with gzip.open(dataset_filename, "rt") as f:
             self.from_json(f.read(), scenes_dir=config.SCENES_DIR)
@@ -91,7 +92,6 @@ class VLNCEDatasetV1(Dataset):
             episode["trajectory_id"] = str(episode["trajectory_id"])
 
             episode = VLNExtendedEpisode(**episode)
-
             if scenes_dir is not None:
                 if episode.scene_id.startswith(DEFAULT_SCENE_PATH_PREFIX):
                     episode.scene_id = episode.scene_id[

@@ -275,6 +275,31 @@ class DaggerTrainer(BaseVLNCETrainer):
         )
         batch = batch_obs(observations, self.device)
         batch = apply_obs_transforms_batch(batch, self.obs_transforms)
+        
+        # ! 可视化！
+        import cv2
+        import numpy as np
+        
+        
+        # rgb
+        # depth
+        # instruction
+        # [2384, 1589, 2202, 2452, 1842, 103, 1165, 2202, 246, 9, 2384, 1589, 2202, 243, 103, 2104, 1138, 938, 1472, 2202, 2449, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        # shortest_path_sensor
+        # progress
+
+        
+        for obs in observations:
+            for sensor in obs:
+                print(sensor)
+                if sensor == 'rgb':
+                    img = obs[sensor]
+                    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                    cv2.imwrite('img.jpg', img)
+                if sensor == "instruction":
+                    print(obs[sensor])
+        
+        exit()
 
         episodes = [[] for _ in range(envs.num_envs)]
         skips = [False for _ in range(envs.num_envs)]
@@ -496,7 +521,18 @@ class DaggerTrainer(BaseVLNCETrainer):
             )
         self.config.freeze()
 
+        # ! 比较关键，搞清楚观测空间与动作空间的定义，打印一下试试吧
+        # action_space:  ActionSpace(MOVE_FORWARD:EmptySpace(), STOP:EmptySpace(), TURN_LEFT:EmptySpace(), TURN_RIGHT:EmptySpace())
+        # type(observation_space) -> <class 'gym.spaces.dict.Dict'>
+        # observation_space keys:  odict_keys(['depth', 'instruction', 'progress', 'rgb', 'shortest_path_sensor'])
+        
         observation_space, action_space = self._get_spaces(self.config)
+        
+        
+        # print("observation_space: ", observation_space)
+        # # print(type(observation_space))
+        print("\n\n\n\n\n\n\n************************************action_space: ", action_space)
+        # exit()
 
         self._initialize_policy(
             self.config,
@@ -510,17 +546,21 @@ class DaggerTrainer(BaseVLNCETrainer):
             flush_secs=self.flush_secs,
             purge_step=0,
         ) as writer:
+            # 开始训练，达到训练轮次之前进行循环
             for dagger_it in range(self.config.IL.DAGGER.iterations):
                 step_id = 0
+                # 不从lmdb_features_dir直接加载提前计算好的特征
                 if not self.config.IL.DAGGER.preload_lmdb_features:
-                    self._update_dataset(
-                        dagger_it + (1 if self.config.IL.load_from_ckpt else 0)
-                    )
+                    print("\n\n\n\n\n\n\n************************************_update_dataset: ", dagger_it)
+                    self._update_dataset(dagger_it + (1 if self.config.IL.load_from_ckpt else 0))
 
                 if torch.cuda.is_available():
                     with torch.cuda.device(self.device):
                         torch.cuda.empty_cache()
+                # 手动触发垃圾回收机制
                 gc.collect()
+                
+                print("\n\n\n\n\n\n\n************************************gc.collect() ", )
 
                 dataset = IWTrajectoryDataset(
                     self.lmdb_features_dir,
@@ -540,71 +580,52 @@ class DaggerTrainer(BaseVLNCETrainer):
                 )
 
                 AuxLosses.activate()
-                for epoch in tqdm.trange(
-                    self.config.IL.epochs, dynamic_ncols=True
-                ):
-                    for batch in tqdm.tqdm(
-                        diter,
-                        total=dataset.length // dataset.batch_size,
-                        leave=False,
-                        dynamic_ncols=True,
-                    ):
-                        (
-                            observations_batch,
-                            prev_actions_batch,
-                            not_done_masks,
-                            corrected_actions_batch,
-                            weights_batch,
-                        ) = batch
+                
+                # 把进度条干掉，方便调试
+                for epoch in range(self.config.IL.epochs):  # 替换 trange 为普通 range
+                    print(epoch,"\n")
+                    print(dataset) # -> <vlnce_baselines.dagger_trainer.IWTrajectoryDataset object at 0x7f8f28277d00>
+                    # IWTrajectoryDataset 是 IterableDataset 类型的，print(len(diter)) 会报错。
+                    
+                    for batch in diter:  # 直接迭代数据迭代器，移除 tqdm 包装
+                        # 不知道为啥这里面不能打印呢？？
+                        print(batch)
+                        (observations_batch,prev_actions_batch, not_done_masks,corrected_actions_batch,weights_batch,) = batch
+                        print(epoch,"\n")
+                        
+                # # for epoch in tqdm.trange(self.config.IL.epochs, dynamic_ncols=True):
+                # #     # leave=False：内层进度条完成后不保留显示。dynamic_ncols=True：动态调整进度条宽度。
+                # #     for batch in tqdm.tqdm(diter, total=dataset.length // dataset.batch_size, leave=False, dynamic_ncols=True,):
+                #         (observations_batch,prev_actions_batch, not_done_masks,corrected_actions_batch,weights_batch,) = batch
+                        
+                #         # 打印 observations_batch 第一个元素的类型
+                #         print("************************************\n")
+                #         print(type(observations_batch[0]))
+                        
+                #         # exit()
 
-                        observations_batch = {
-                            k: v.to(
-                                device=self.device,
-                                dtype=torch.float32,
-                                non_blocking=True,
-                            )
-                            for k, v in observations_batch.items()
-                        }
+                #         # k为 keys， v为values， 这一步是将数据转移到GPU上，.items() 是 Python 字典 (dict) 的一个方法，用于返回字典中的键值对。
+                #         observations_batch = {
+                #             k: v.to(device=self.device, dtype=torch.float32, non_blocking=True,) for k, v in observations_batch.items()
+                #         }
 
-                        loss, action_loss, aux_loss = self._update_agent(
-                            observations_batch,
-                            prev_actions_batch.to(
-                                device=self.device, non_blocking=True
-                            ),
-                            not_done_masks.to(
-                                device=self.device, non_blocking=True
-                            ),
-                            corrected_actions_batch.to(
-                                device=self.device, non_blocking=True
-                            ),
-                            weights_batch.to(
-                                device=self.device, non_blocking=True
-                            ),
-                        )
+                #         loss, action_loss, aux_loss = self._update_agent(
+                #             observations_batch,
+                #             prev_actions_batch.to(device=self.device, non_blocking=True),
+                #             not_done_masks.to(device=self.device, non_blocking=True),
+                #             corrected_actions_batch.to(device=self.device, non_blocking=True),
+                #             weights_batch.to(device=self.device, non_blocking=True),
+                #         )
 
-                        logger.info(f"train_loss: {loss}")
-                        logger.info(f"train_action_loss: {action_loss}")
-                        logger.info(f"train_aux_loss: {aux_loss}")
-                        logger.info(f"Batches processed: {step_id}.")
-                        logger.info(
-                            f"On DAgger iter {dagger_it}, Epoch {epoch}."
-                        )
-                        writer.add_scalar(
-                            f"train_loss_iter_{dagger_it}", loss, step_id
-                        )
-                        writer.add_scalar(
-                            f"train_action_loss_iter_{dagger_it}",
-                            action_loss,
-                            step_id,
-                        )
-                        writer.add_scalar(
-                            f"train_aux_loss_iter_{dagger_it}",
-                            aux_loss,
-                            step_id,
-                        )
-                        step_id += 1  # noqa: SIM113
+                #         logger.info(f"train_loss: {loss}")
+                #         logger.info(f"train_action_loss: {action_loss}")
+                #         logger.info(f"train_aux_loss: {aux_loss}")
+                #         logger.info(f"Batches processed: {step_id}.")
+                #         logger.info(f"On DAgger iter {dagger_it}, Epoch {epoch}.")
+                #         writer.add_scalar(f"train_loss_iter_{dagger_it}", loss, step_id)
+                #         writer.add_scalar(f"train_action_loss_iter_{dagger_it}",action_loss,step_id,)
+                #         writer.add_scalar(f"train_aux_loss_iter_{dagger_it}",aux_loss,step_id,)
+                #         step_id += 1  # noqa: SIM113
 
-                    self.save_checkpoint(
-                        f"ckpt.{dagger_it * self.config.IL.epochs + epoch}.pth"
-                    )
+                #     self.save_checkpoint(f"ckpt.{dagger_it * self.config.IL.epochs + epoch}.pth")
                 AuxLosses.deactivate()

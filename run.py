@@ -77,8 +77,20 @@ def run_exp(exp_config: str, run_type: str, opts=None) -> None:
         return
 
     trainer_init = baseline_registry.get_trainer(config.TRAINER_NAME)
+    # print(type(trainer_init)) -><class 'type'> content -> DaggerTrainer
+    # exit()
+    
     assert trainer_init is not None, f"{config.TRAINER_NAME} is not supported"
+    
     trainer = trainer_init(config)
+    
+    # print(type(config))
+    # exit()
+    
+    with open("run_config.yaml", "w") as f:
+        f.write(config.dump())
+    
+    exit()
 
     if run_type == "train":
         trainer.train()
@@ -86,6 +98,8 @@ def run_exp(exp_config: str, run_type: str, opts=None) -> None:
         trainer.eval()
     elif run_type == "inference":
         trainer.inference()
+    # elif run_type == "make_gt_video":
+    #     trainer.make_gt_video()
 
 
 if __name__ == "__main__":

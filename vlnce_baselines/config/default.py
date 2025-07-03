@@ -4,7 +4,7 @@ from typing import List, Optional, Union
 import habitat_baselines.config.default
 import numpy as np
 from habitat.config.default import CONFIG_FILE_SEPARATOR
-from habitat.config.default import Config as CN
+from habitat.config.default import Config as CN # -> yacs.config.CfgNode
 
 from habitat_extensions.config.default import (
     get_extended_config as get_task_config,
@@ -13,6 +13,7 @@ from habitat_extensions.config.default import (
 # ----------------------------------------------------------------------------
 # EXPERIMENT CONFIG
 # ----------------------------------------------------------------------------
+# CN # -> yacs.config.CfgNode
 _C = CN()
 _C.BASE_TASK_CONFIG_PATH = "habitat_extensions/config/vlnce_task.yaml"
 _C.TASK_CONFIG = CN()  # task_config will be stored as a config node
@@ -58,7 +59,8 @@ _C.INFERENCE.FORMAT = "rxr"  # either 'rxr' or 'r2r'
 # ----------------------------------------------------------------------------
 _C.IL = CN()
 _C.IL.lr = 2.5e-4
-_C.IL.batch_size = 5
+# _C.IL.batch_size = 5
+_C.IL.batch_size = 1
 # number of network update rounds per iteration
 _C.IL.epochs = 4
 # if true, uses class-based inflection weighting
@@ -306,10 +308,13 @@ def get_config(
         0.5]`. Argument can be used for parameter sweeping or quick tests.
     """
     config = CN()
+    #! 先把 hibaitat-lab  habitat_baselines.config.default._C 里的内容都 merge 进来
     config.merge_from_other_cfg(habitat_baselines.config.default._C)
     purge_keys(config, ["SIMULATOR_GPU_ID", "TEST_EPISODE_COUNT"])
+    #! 把当前文件 _C 里的内容都 merge 进来
     config.merge_from_other_cfg(_C.clone())
 
+    #! 把运行程序的时候 args 里面的yaml 文件merge进来
     if config_paths:
         if isinstance(config_paths, str):
             if CONFIG_FILE_SEPARATOR in config_paths:
@@ -321,9 +326,7 @@ def get_config(
         for config_path in config_paths:
             config.merge_from_file(config_path)
             if config.BASE_TASK_CONFIG_PATH != prev_task_config:
-                config.TASK_CONFIG = get_task_config(
-                    config.BASE_TASK_CONFIG_PATH
-                )
+                config.TASK_CONFIG = get_task_config(config.BASE_TASK_CONFIG_PATH)
                 prev_task_config = config.BASE_TASK_CONFIG_PATH
 
     if opts:

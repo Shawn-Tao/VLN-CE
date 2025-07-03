@@ -151,17 +151,48 @@ class BaseVLNCETrainer(BaseILTrainer):
         )
 
         AuxLosses.clear()
+        
+        # class CustomFixedCategorical(torch.distributions.Categorical):
+        #     def sample(self, sample_shape=torch.Size()) -> Tensor:
+        #         # 采样动作并增加一个维度（例如 [B] → [B,1]）
+        #         return super().sample(sample_shape).unsqueeze(-1)
 
-        distribution = self.policy.build_distribution(
-            observations, recurrent_hidden_states, prev_actions, not_done_masks
-        )
+        #     def log_probs(self, actions: Tensor) -> Tensor:
+        #         # 计算对数概率，处理维度并求和（用于多离散动作或序列任务）
+        #         return (
+        #             super().log_prob(actions.squeeze(-1))  # 移除最后一个维度（如 [B,1] → [B]）
+        #             .view(actions.size(0), -1)             # 重塑为 [B, N]（N为多动作维度）
+        #             .sum(-1)                                # 沿最后一个维度求和（聚合对数概率）
+        #             .unsqueeze(-1)                          # 恢复维度 [B] → [B,1]
+        #         )
+        #     def mode(self):
+        #         # 返回概率最大的动作索引（保持维度一致性）
+        #         return self.probs.argmax(dim=-1, keepdim=True)
+        
+        # class CategoricalNet(nn.Module):
+        # def __init__(self, num_inputs: int, num_outputs: int) -> None:
+        #     super().__init__()
+        #     self.linear = nn.Linear(num_inputs, num_outputs)
+        #     nn.init.orthogonal_(self.linear.weight, gain=0.01)
+        #     nn.init.constant_(self.linear.bias, 0)
+        # def forward(self, x: Tensor) -> CustomFixedCategorical:
+        #     x = self.linear(x)
+        #     return CustomFixedCategorical(logits=x)
+        
+        # self.action_distribution = CategoricalNet(self.net.output_size, self.dim_actions)
+        
+        # def build_distribution(self, observations, rnn_states, prev_actions, masks) -> CustomFixedCategorical:
+        #     features, rnn_states = self.net(observations, rnn_states, prev_actions, masks)
+        #     return self.action_distribution(features)
 
+        # 网络推理，对应的是policy.py中的build_distribution函数，如上所示
+        distribution = self.policy.build_distribution(observations, recurrent_hidden_states, prev_actions, not_done_masks)
+
+        # 为了在下一步计算交叉熵损失
         logits = distribution.logits
         logits = logits.view(T, N, -1)
 
-        action_loss = F.cross_entropy(
-            logits.permute(0, 2, 1), corrected_actions, reduction="none"
-        )
+        action_loss = F.cross_entropy(logits.permute(0, 2, 1), corrected_actions, reduction="none")
         action_loss = ((weights * action_loss).sum(0) / weights.sum(0)).mean()
 
         aux_mask = (weights > 0).view(-1)

@@ -42,7 +42,7 @@ def construct_envs(
     configs = []
     env_classes = [env_class for _ in range(num_envs)]
     dataset = make_dataset(config.TASK_CONFIG.DATASET.TYPE)
-    scenes = config.TASK_CONFIG.DATASET.CONTENT_SCENES
+    scenes = config.TASK_CONFIG.DATASET.CONTENT_SCENES # -> ['*']
     if ALL_SCENES_MASK in config.TASK_CONFIG.DATASET.CONTENT_SCENES:
         scenes = dataset.get_scenes_to_load(config.TASK_CONFIG.DATASET)
 

@@ -18,7 +18,8 @@ IL:
 
   DAGGER:
     iterations: 1
-    update_size: 157232
+    # update_size: 157232
+    update_size: 3
     p: 1.0
     preload_lmdb_features: False
     lmdb_features_dir: data/trajectories_dirs/cma_aug/trajectories.lmdb
@@ -31,3 +32,4 @@ MODEL:
 
   PROGRESS_MONITOR:
     use: True
+

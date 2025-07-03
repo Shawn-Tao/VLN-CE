@@ -1,0 +1,9 @@
+qwen_r2r_dataset_cfg:
+  json_file_save_path: "data/vln_datasets.json"
+  # dataset_file_path: "/home/sy1106/HDD/TZL/VLN/latest_version/my_habitat-sample/utils/images"
+  # dataset_file_path: "/home/sy1106/HDD/TZL/VLN/latest_version/my_habitat-sample/examples/images/r2r_train"
+  # dataset_file_path: "/home/sy1106/HDD/TZL/LLM-VLM/LLaMA-Factory/r2r_train_320"
+  dataset_file_path: "/home/sy1106/HDD/TZL/LLM-VLM/LLaMA-Factory/r2r_train_240"
+  path_prefix: "r2r_train_240"
+  max_historical_image_num: 5
+  
