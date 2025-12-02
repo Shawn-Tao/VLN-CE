@@ -1,5 +1,5 @@
-BASE_TASK_CONFIG_PATH: habitat_extensions/config/rxr_vlnce_english_task_tzl.yaml
-CHECKPOINT_FOLDER: data/checkpoints/rxr_cma_en
+BASE_TASK_CONFIG_PATH: habitat_extensions/config/vlnce_task_tzl.yaml
+CHECKPOINT_FOLDER: data/checkpoints
 CHECKPOINT_INTERVAL: -1
 CMD_TRAILING_OPTS: []
 ENV_NAME: VLNCEDaggerEnv
@@ -8,13 +8,14 @@ EVAL:
   EVAL_NONLEARNING: false
   LANGUAGES:
   - en-US
+  - en-IN
   NONLEARNING:
     AGENT: RandomAgent
-  SAMPLE: true
+  SAMPLE: false
   SAVE_RESULTS: true
-  SPLIT: val_unseen
-  USE_CKPT_CONFIG: false
-EVAL_CKPT_PATH_DIR: data/checkpoints/rxr_cma_en
+  SPLIT: val_seen
+  USE_CKPT_CONFIG: true
+EVAL_CKPT_PATH_DIR: data/checkpoints
 FORCE_BLIND_POLICY: false
 IL:
   DAGGER:
@@ -33,34 +34,36 @@ IL:
   RECOLLECT_TRAINER:
     effective_batch_size: -1
     gt_file: data/datasets/RxR_VLNCE_v0/{split}/{split}_{role}_gt.json.gz
-    max_traj_len: 250
+    max_traj_len: -1
     preload_size: 30
     preload_trajectories_file: false
-    trajectories_file: data/trajectories_dirs/rxr_en_guide_trim250/trajectories.json.gz
-  batch_size: 3
+    trajectories_file: data/trajectories_dirs/debug/trajectories.json.gz
+  batch_size: 1
   ckpt_to_load: data/checkpoints/ckpt.0.pth
-  epochs: 15
-  inflection_weight_coef: 1.9
+  epochs: 4
+  inflection_weight_coef: 3.2
   is_requeue: false
   load_from_ckpt: false
   lr: 0.00025
   use_iw: true
 INFERENCE:
-  CKPT_PATH: data/checkpoints/ckpt.0.pth
-  FORMAT: rxr
+  CKPT_PATH: data/checkpoints/CMA_PM_DA_Aug.pth
+  FORMAT: r2r
   INFERENCE_NONLEARNING: false
   LANGUAGES:
   - en-US
   - en-IN
   NONLEARNING:
     AGENT: RandomAgent
-  PREDICTIONS_FILE: rxr_cma_en_test_challenge.jsonl
-  SAMPLE: true
-  SPLIT: test_challenge
+  PREDICTIONS_FILE: predictions.json
+  SAMPLE: false
+  SPLIT: test
   USE_CKPT_CONFIG: false
 LOG_FILE: train.log
 LOG_INTERVAL: 10
 MODEL:
+  CMA:
+    use: true
   DEPTH_ENCODER:
     backbone: resnet50
     cnn_type: VlnResnetDepthEncoder
@@ -71,17 +74,17 @@ MODEL:
     bidirectional: true
     dataset_vocab: data/datasets/R2R_VLNCE_v1-3_preprocessed/train/train.json.gz
     embedding_file: data/datasets/R2R_VLNCE_v1-3_preprocessed/embeddings.json.gz
-    embedding_size: 768
+    embedding_size: 50
     final_state_only: true
     fine_tune_embeddings: false
     hidden_size: 128
     rnn_type: LSTM
-    sensor_uuid: rxr_instruction
+    sensor_uuid: instruction
     use_pretrained_embeddings: true
     vocab_size: 2504
   PROGRESS_MONITOR:
     alpha: 1.0
-    use: false
+    use: true
   RGB_ENCODER:
     cnn_type: TorchVisionResNet50
     output_size: 256
@@ -137,7 +140,7 @@ ORBSLAM2:
 PROFILING:
   CAPTURE_START_STEP: -1
   NUM_STEPS_TO_CAPTURE: -1
-RESULTS_DIR: data/checkpoints/rxr_cma_en/evals
+RESULTS_DIR: data/checkpoints/pretrained/evals
 RL:
   CHECKPOINT_INTERVAL: 250
   DDPPO:
@@ -182,9 +185,7 @@ RL:
         - 0.2
         SENSOR_UUIDS: []
         WIDTH: 256
-      ENABLED_TRANSFORMS:
-      - ResizeShortestEdge
-      - CenterCropperPerSensor
+      ENABLED_TRANSFORMS: []
       EQ2CUBE:
         HEIGHT: 256
         SENSOR_UUIDS: []
@@ -257,17 +258,16 @@ TASK_CONFIG:
   DATASET:
     CONTENT_SCENES:
     - '*'
-    DATA_PATH: data/datasets/RxR_VLNCE_v0/{split}/{split}_{role}.json.gz
+    DATA_PATH: data/datasets/R2R_VLNCE_v1-3_preprocessed/{split}/{split}.json.gz
     EPISODES_ALLOWED:
     - '*'
     LANGUAGES:
-    - en-US
-    - en-IN
+    - '*'
     ROLES:
     - guide
     SCENES_DIR: data/scene_datasets/
     SPLIT: train
-    TYPE: RxR-VLN-CE-v1
+    TYPE: VLN-CE-v1
   ENVIRONMENT:
     ITERATOR_OPTIONS:
       CYCLE: true
@@ -317,19 +317,19 @@ TASK_CONFIG:
     - BUMP_SENSOR
   SEED: 100
   SIMULATOR:
-    ACTION_SPACE_CONFIG: v1
+    ACTION_SPACE_CONFIG: v0
     AGENTS:
     - AGENT_0
     AGENT_0:
       ANGULAR_ACCELERATION: 12.56
       ANGULAR_FRICTION: 1.0
       COEFFICIENT_OF_RESTITUTION: 0.0
-      HEIGHT: 0.88
+      HEIGHT: 1.5
       IS_SET_START_STATE: false
       LINEAR_ACCELERATION: 20.0
       LINEAR_FRICTION: 0.5
       MASS: 32.0
-      RADIUS: 0.18
+      RADIUS: 0.1
       SENSORS:
       - RGB_SENSOR
       START_POSITION:
@@ -343,10 +343,10 @@ TASK_CONFIG:
       - 1
     DEFAULT_AGENT_ID: 0
     DEPTH_SENSOR:
-      HEIGHT: 480
-      HFOV: 79
-      MAX_DEPTH: 5.0
-      MIN_DEPTH: 0.5
+      HEIGHT: 256
+      HFOV: 90
+      MAX_DEPTH: 10.0
+      MIN_DEPTH: 0.0
       NORMALIZE_DEPTH: true
       ORIENTATION:
       - 0.0
@@ -354,13 +354,13 @@ TASK_CONFIG:
       - 0.0
       POSITION:
       - 0
-      - 0.88
+      - 1.25
       - 0
       TYPE: HabitatSimDepthSensor
-      WIDTH: 640
+      WIDTH: 256
     FORWARD_STEP_SIZE: 0.25
     HABITAT_SIM_V0:
-      ALLOW_SLIDING: false
+      ALLOW_SLIDING: true
       ENABLE_PHYSICS: false
       GPU_DEVICE_ID: 0
       GPU_GPU: false
@@ -374,7 +374,7 @@ TASK_CONFIG:
       - 0.0
       POSITION:
       - 0
-      - 0.88
+      - 1.25
       - 0
       TYPE: HabitatSimRGBSensor
       WIDTH: 424
@@ -393,8 +393,8 @@ TASK_CONFIG:
       - 0
       TYPE: HabitatSimSemanticSensor
       WIDTH: 640
-    TILT_ANGLE: 30
-    TURN_ANGLE: 30
+    TILT_ANGLE: 15
+    TURN_ANGLE: 15
     TYPE: Sim-v0
   TASK:
     ACTIONS:
@@ -443,12 +443,12 @@ TASK_CONFIG:
       TYPE: ImageGoalSensor
     INSTRUCTION_SENSOR:
       TYPE: InstructionSensor
-    INSTRUCTION_SENSOR_UUID: rxr_instruction
+    INSTRUCTION_SENSOR_UUID: instruction
     MEASUREMENTS: []
     NDTW:
       FDTW: true
-      GT_PATH: data/datasets/RxR_VLNCE_v0/{split}/{split}_{role}_gt.json.gz
-      SPLIT: train
+      GT_PATH: data/datasets/R2R_VLNCE_v1-3_preprocessed/{split}/{split}_gt.json.gz
+      SPLIT: val_unseen
       SUCCESS_DISTANCE: 3.0
       TYPE: NDTW
     OBJECTGOAL_SENSOR:
@@ -484,8 +484,6 @@ TASK_CONFIG:
     - MOVE_FORWARD
     - TURN_LEFT
     - TURN_RIGHT
-    - LOOK_UP
-    - LOOK_DOWN
     PROXIMITY_SENSOR:
       MAX_DETECTION_RADIUS: 2.0
       TYPE: ProximitySensor
@@ -505,6 +503,7 @@ TASK_CONFIG:
     SOFT_SPL:
       TYPE: SoftSPL
     SPL:
+      SUCCESS_DISTANCE: 3.0
       TYPE: SPL
     STEPS_TAKEN:
       TYPE: StepsTaken
@@ -552,10 +551,10 @@ TASK_CONFIG:
       slack_reward: -0.05
       success_reward: 2.5
       use_distance_scaled_slack_reward: true
-TENSORBOARD_DIR: data/tensorboard_dirs/rxr_cma_en
+TENSORBOARD_DIR: data/tensorboard_dirs/debug
 TORCH_GPU_ID: 0
 TOTAL_NUM_STEPS: -1.0
-TRAINER_NAME: recollect_trainer
+TRAINER_NAME: dagger
 VERBOSE: true
 VIDEO_DIR: data/videos/debug
 VIDEO_OPTION: []

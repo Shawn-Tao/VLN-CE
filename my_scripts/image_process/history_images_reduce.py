@@ -75,7 +75,8 @@ def main():
 
         for image_file in tqdm.tqdm(image_files, desc=f"Processing images in {subdir}"):
             img = Image.open(image_file)
-            img_resized = img.resize((112, 56), Image.Resampling.BICUBIC)
+            # img_resized = img.resize((112, 56), Image.Resampling.BICUBIC)
+            img_resized = img.resize((112, 56), resample=Image.LANCZOS)
             output_image_path = os.path.join(output_subdir_path, os.path.basename(image_file))
             img_resized.save(output_image_path)
 

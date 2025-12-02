@@ -1,0 +1,30 @@
+qwen_r2r_dataset_cfg:
+
+  # Json文件保存路径
+  # json_file_save_path: "r2r_train_424_240.json"
+  json_file_save_path: "r2r_orpo_train_424_240_more_stop.jsonl"
+  # 图像数据集路径
+  # dataset_file_path: "/home/sy1106/HDD/TZL/LLM-VLM/LLaMA-Factory/data/vln_datasets/r2r_train_424_240"
+  dataset_file_path: "/home/sy1106/HDD/TZL/LLM-VLM/datasets/rl_vln/r2r_train_424_240"
+
+  # Json文件中，图像路径前缀；Docker中路径可能与本机不同。
+  # 以下两个文件夹中的构造是相同的，但是图片大小不一样，这是为了减少历史信息的token数
+  path_prefix: "/LLM-VLM/datasets/rl_vln/r2r_train_424_240"
+  reduced_image_path_prefix: "data/vln_datasets/r2r_train_112_56"
+  # 是否缩减历史图像
+  if_reduce_history_image: False
+
+  max_historical_image_num: 9
+  max_action_sequence_length: 5
+
+  # 是否对历史图像进行均匀采样，否的话只取样最近的几帧图像
+  uniform_sample_history: True
+  
+  # dataset_file_path: "/home/sy1106/HDD/TZL/VLN/latest_version/my_habitat-sample/utils/images"
+  # dataset_file_path: "/home/sy1106/HDD/TZL/VLN/latest_version/my_habitat-sample/examples/images/r2r_train"
+  # dataset_file_path: "/home/sy1106/HDD/TZL/LLM-VLM/LLaMA-Factory/r2r_train_320"
+  # dataset_file_path: "/home/sy1106/HDD/TZL/LLM-VLM/LLaMA-Factory/rxr_train_240"
+  # dataset_file_path: "/home/sy1106/HDD/TZL/LLM-VLM/LLaMA-Factory/vln_datasets/rxr_train_424_240_en"
+  
+
+  

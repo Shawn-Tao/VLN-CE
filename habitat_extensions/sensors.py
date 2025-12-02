@@ -195,3 +195,75 @@ class RxRInstructionSensor(Sensor):
         s = features["features"].shape
         feats[: s[0], : s[1]] = features["features"]
         return feats
+
+
+@registry.register_sensor
+class PositionSelfSensor(Sensor):
+    r"""Sensor that integrates PointGoals observations (which are used PointGoal Navigation) and GPS+Compass.
+
+    For the agent in simulator the forward direction is along negative-z.
+    In polar coordinate format the angle returned is azimuth to the goal.
+
+    Args:
+        sim: reference to the simulator for calculating task observations.
+        config: config for the PointGoal sensor. Can contain field for
+            GOAL_FORMAT which can be used to specify the format in which
+            the pointgoal is specified. Current options for goal format are
+            cartesian and polar.
+
+            Also contains a DIMENSIONALITY field which specifes the number
+            of dimensions ued to specify the goal, must be in [2, 3]
+
+    Attributes:
+        _goal_format: format for specifying the goal which can be done
+            in cartesian or polar coordinates.
+        _dimensionality: number of dimensions used to specify the goal
+    """
+    
+    cls_uuid: str = "position_self_sensor"
+
+    def __init__(
+        self, sim: Simulator, config: Config, *args: Any, **kwargs: Any
+    ):
+        self._sim = sim
+
+        # self._goal_format = getattr(config, "GOAL_FORMAT", "CARTESIAN")
+        # assert self._goal_format in ["CARTESIAN", "POLAR"]
+
+        # self._dimensionality = getattr(config, "DIMENSIONALITY", 2)
+        # assert self._dimensionality in [2, 3]
+
+        super().__init__(config=config)
+
+    def _get_uuid(self, *args: Any, **kwargs: Any) -> str:
+        return self.cls_uuid
+
+    def _get_sensor_type(self, *args: Any, **kwargs: Any):
+        return SensorTypes.PATH
+
+    def _get_observation_space(self, *args: Any, **kwargs: Any):
+        sensor_shape = (3,)
+
+        return spaces.Box(
+            low=np.finfo(np.float32).min,
+            high=np.finfo(np.float32).max,
+            shape=sensor_shape,
+            dtype=np.float32,
+        )
+
+    def get_observation(
+        self, observations, episode, *args: Any, **kwargs: Any
+    ):
+        agent_state = self._sim.get_agent_state()
+        agent_position = agent_state.position
+        rotation_world_agent = agent_state.rotation
+        goal_position = np.array(episode.goals[0].position, dtype=np.float32)
+        
+        
+        # print(agent_state,"agent_state")
+        # print(agent_position,"agent_position")
+        # print(rotation_world_agent,"rotation_world_agent")
+        # print(goal_position,"goal_position")
+        
+        
+        return [agent_position,rotation_world_agent,goal_position]

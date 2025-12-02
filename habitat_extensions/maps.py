@@ -141,6 +141,19 @@ def drawline(
                 cv2.line(img, s, e, color, thickness)
 
 
+# def drawpoint(
+#     img: np.ndarray,
+#     position: Union[Tuple[int], List[int]],
+#     color: List[int],
+#     meters_per_px: float,
+#     pad: float = 0.3,
+# ) -> None:
+#     point_padding = int(pad / meters_per_px)
+#     img[
+#         position[0] - point_padding : position[0] + point_padding + 1,
+#         position[1] - point_padding : position[1] + point_padding + 1,
+#     ] = color
+
 def drawpoint(
     img: np.ndarray,
     position: Union[Tuple[int], List[int]],
@@ -148,11 +161,25 @@ def drawpoint(
     meters_per_px: float,
     pad: float = 0.3,
 ) -> None:
-    point_padding = int(pad / meters_per_px)
-    img[
-        position[0] - point_padding : position[0] + point_padding + 1,
-        position[1] - point_padding : position[1] + point_padding + 1,
-    ] = color
+    """安全绘制点，包含边界检查"""
+    h, w = img.shape[:2]  # 获取图像高度和宽度
+    
+    # 计算点的大小（基于地图分辨率）
+    point_padding = max(1, int(pad / meters_per_px))  # 确保至少1像素
+    
+    # 计算安全边界
+    x_start = max(0, position[0] - point_padding)
+    x_end = min(h-1, position[0] + point_padding + 1)
+    y_start = max(0, position[1] - point_padding)
+    y_end = min(w-1, position[1] + point_padding + 1)
+    
+    # 仅在有效范围内绘制
+    if x_start < x_end and y_start < y_end:
+        img[x_start:x_end, y_start:y_end] = color
+    else:
+        # 可选：记录或处理边界点
+        pass
+
 
 
 def draw_triangle(
@@ -325,6 +352,9 @@ def draw_mp3d_nodes(
     graph: nx.Graph,
     meters_per_px: float,
 ) -> None:
+    
+    h, w = img.shape[:2]
+    
     n = get_nearest_node(
         graph, (episode.start_position[0], episode.start_position[2])
     )
@@ -334,9 +364,12 @@ def draw_mp3d_nodes(
 
         # no obvious way to differentiate between floors. Use this for now.
         if abs(pos[1] - starting_height) < 1.0:
-            r_x, r_y = habitat_maps.to_grid(
-                pos[2], pos[0], img.shape[0:2], sim
-            )
+            r_x, r_y = habitat_maps.to_grid(pos[2], pos[0], img.shape[0:2], sim)
+            
+            r_x = min(r_x,h-1)
+            r_y = min(r_y,w-1)
+            r_x = max(0,r_x)
+            r_y = max(0,r_y)
 
             # only paint if over a valid point
             if img[r_x, r_y]:

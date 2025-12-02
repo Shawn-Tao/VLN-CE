@@ -17,6 +17,11 @@ _C.TASK.GLOBAL_GPS_SENSOR = CN()
 _C.TASK.GLOBAL_GPS_SENSOR.TYPE = "GlobalGPSSensor"
 _C.TASK.GLOBAL_GPS_SENSOR.DIMENSIONALITY = 2
 # ----------------------------------------------------------------------------
+# POSITION SELF SENSOR
+# ----------------------------------------------------------------------------
+_C.TASK.POSITION_SELF_SENSOR = CN()
+_C.TASK.POSITION_SELF_SENSOR.TYPE = "PositionSelfSensor"
+# ----------------------------------------------------------------------------
 # ORACLE ACTION SENSOR
 # ----------------------------------------------------------------------------
 _C.TASK.ORACLE_ACTION_SENSOR = CN()

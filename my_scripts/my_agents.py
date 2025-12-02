@@ -173,28 +173,38 @@ class gt_flower_r2r():
     def __init__(self,split="train"):
         # self.env = env
         # self.reset()
+        dataset_filename = "data/datasets/R2R_VLNCE_v1-3_preprocessed/{split}/{split}.json.gz".format(split=split)
         dataset_gt_filename = "data/datasets/R2R_VLNCE_v1-3_preprocessed/{split}/{split}_gt.json.gz".format(split=split)
         # print("dataset_gt_filename:",dataset_gt_filename)
-        f = gzip.open(dataset_gt_filename, "rt")
-        self.deserialized = json.loads(f.read())
-        f.close()
+        
+        # f = gzip.open(dataset_filename, "rt")
+        # self.deserialized = json.loads(f.read())
+        # f.close()
+        
+        f_gt = gzip.open(dataset_gt_filename, "rt")
+        self.deserialized_gt = json.loads(f_gt.read())
+        f_gt.close()
+        
         self.action_count = 0
         self.current_episode_id = 0
         
     def gt_action_parse(self, episode_id):
         self.current_episode_id = episode_id
         self.action_count = 0
-        return self.deserialized[str(episode_id)]['actions']
+        return self.deserialized_gt[str(episode_id)]['actions']
+    
+    # def get_goal_pos(self, episode_id):
+    #     return self.deserialized[str(episode_id)]['goals']['position']
     
     def get_next_action(self):
         next_action = HabitatSimActions.STOP
-        if(self.deserialized[str(self.current_episode_id)]['actions'][self.action_count] == 0):
+        if(self.deserialized_gt[str(self.current_episode_id)]['actions'][self.action_count] == 0):
             next_action = HabitatSimActions.STOP
-        elif(self.deserialized[str(self.current_episode_id)]['actions'][self.action_count] == 1):
+        elif(self.deserialized_gt[str(self.current_episode_id)]['actions'][self.action_count] == 1):
             next_action = HabitatSimActions.MOVE_FORWARD
-        elif(self.deserialized[str(self.current_episode_id)]['actions'][self.action_count] == 2):
+        elif(self.deserialized_gt[str(self.current_episode_id)]['actions'][self.action_count] == 2):
             next_action = HabitatSimActions.TURN_LEFT
-        elif(self.deserialized[str(self.current_episode_id)]['actions'][self.action_count] == 3):
+        elif(self.deserialized_gt[str(self.current_episode_id)]['actions'][self.action_count] == 3):
             next_action = HabitatSimActions.TURN_RIGHT
         # print("current_action:",next_action)
         self.action_count += 1
@@ -202,11 +212,12 @@ class gt_flower_r2r():
 
 def gt_inference_r2r(config: Config) -> None:
     
+    render_top_down_map = False
+    
     IMAGE_DIR = os.path.join("output", "images")
     if not os.path.exists(IMAGE_DIR):
         os.makedirs(IMAGE_DIR)
-
-    
+        
     # split = config.INFERENCE.SPLIT
     split = "train"
     # split = "envdrop"
@@ -221,9 +232,15 @@ def gt_inference_r2r(config: Config) -> None:
     config.TASK_CONFIG.TASK.PANO_ANGLE_FEATURE_SENSOR.CAMERA_NUM = 1
     config.TASK_CONFIG.TASK.PANO_ROTATIONS = 1
     # config.TASK_CONFIG.TASK.SENSORS = ['INSTRUCTION_SENSOR', 'SHORTEST_PATH_SENSOR', 'VLN_ORACLE_PROGRESS_SENSOR']
-    config.TASK_CONFIG.TASK.SENSORS = ['INSTRUCTION_SENSOR']
+    config.TASK_CONFIG.TASK.SENSORS = ['INSTRUCTION_SENSOR', "HEADING_SENSOR", "GLOBAL_GPS_SENSOR","POSITION_SELF_SENSOR"]
     # print(config.TASK_CONFIG.TASK.SENSORS)
     # exit()
+    
+    config.TASK_CONFIG.TASK.MEASUREMENTS.append("DISTANCE_TO_GOAL")
+    
+    if(render_top_down_map):
+        config.TASK_CONFIG.TASK.MEASUREMENTS.append("TOP_DOWN_MAP_VLNCE")
+    
     config.freeze()
     
     with open("inference_config.yaml", "w") as f:
@@ -254,17 +271,57 @@ def gt_inference_r2r(config: Config) -> None:
         with open(gt_actions_save_path, "w") as f:
             f.write(', '.join(map(str, gt_actions)))
             
-        # ! recort instruction text 
+        # # ! record the goal position
+        # goal_pos = 
+        # gt_actions_save_path = os.path.join(dirname, f"{episode_id}_goalposition.txt")
+            
+        # ! record instruction text 
         instruction_str = obs["instruction"]["text"]
         instruction_save_path  = os.path.join(dirname, f"{episode_id}_instruction.txt")
         with open(instruction_save_path, "w") as f:
             f.write(instruction_str)
+            
+        # ! record the aim position
+        # aim_position = obs["shortest_path"]["target"]
+        
+        # print(env.get_info(obs))
+        
+        distance_to_goal_list = []
+        current_position_list = []
+        current_quaternion_list = []
+        current_heading_list = []
+        current_gps_pos_list = []
+        goal_position = []
+        
+        distance_to_goal_list.append(env.get_info(obs)["distance_to_goal"])
+        current_position_list.append(obs["position_self_sensor"][0].tolist())
+        current_quaternion_list.append([obs["position_self_sensor"][1].w,obs["position_self_sensor"][1].x,obs["position_self_sensor"][1].y,obs["position_self_sensor"][1].z])
+        current_heading_list.append(obs["heading"][0].tolist())
+        current_gps_pos_list.append(obs["globalgps"].tolist())
+        goal_position = obs["position_self_sensor"][2].tolist()
         
         # ! record first image
         image_count = 0
         im = obs["rgb"]
         image_path = os.path.join(dirname, f"{episode_id}_{image_count}.jpg")
         imageio.imwrite(image_path, im)
+        
+        # ! record init top down map
+        if(render_top_down_map):
+                
+            top_down_map = env.get_info(obs)["top_down_map_vlnce"]['map']
+            
+            top_down_map = maps.colorize_topdown_map(
+                top_down_map, env.get_info(obs)["top_down_map_vlnce"]["fog_of_war_mask"]
+            )
+            top_down_map = habitat_maps.draw_agent(
+                image=top_down_map,
+                agent_center_coord=env.get_info(obs)["top_down_map_vlnce"]["agent_map_coord"],
+                agent_rotation=env.get_info(obs)["top_down_map_vlnce"]["agent_angle"],
+                agent_radius_px=min(top_down_map.shape[0:2]) // 24,
+            )
+            imageio.imwrite(f"{dirname}/top_down_map_vlnce_{episode_id}.jpg", top_down_map)
+        
         
         while not env.get_done(obs):
             best_action = agent.get_next_action()
@@ -275,17 +332,36 @@ def gt_inference_r2r(config: Config) -> None:
             image_path = os.path.join(dirname, f"{episode_id}_{image_count}.jpg")
             imageio.imwrite(image_path, im)
             
+            distance_to_goal_list.append(env.get_info(obs)["distance_to_goal"])
+            current_position_list.append(obs[0]["position_self_sensor"][0].tolist())
+            current_quaternion_list.append([obs[0]["position_self_sensor"][1].w,obs[0]["position_self_sensor"][1].x,obs[0]["position_self_sensor"][1].y,obs[0]["position_self_sensor"][1].z])
+            current_heading_list.append(obs[0]["heading"][0].tolist())
+            current_gps_pos_list.append(obs[0]["globalgps"].tolist())
+            
+        json_dict = {"goal_position": goal_position,
+                     "distance_to_goal": distance_to_goal_list,
+                     "current_position": current_position_list,
+                     "current_quaternion": current_quaternion_list,
+                     "current_heading": current_heading_list,
+                     "current_gps_pos": current_gps_pos_list
+                     }
+        
+        json_save_path = os.path.join(dirname, f"{episode_id}_info.json")
+        with open(json_save_path, "w") as f:
+            json.dump(json_dict, f, indent=4)
         
         # for m, v in env.get_info(obs).items():
         #     stats[m] += v
         #     print(m, v)
             
-        end_time = time.time()
-        elapsed_time = end_time - current_start_time
-        totol_time = end_time - start_time
-        current_start_time = time.time()
-        print(f"current step: {iter}, totol time: {totol_time:.2f} second, time elapsed: {elapsed_time:.2f} seconds")
-
+        # end_time = time.time()
+        # elapsed_time = end_time - current_start_time
+        # totol_time = end_time - start_time
+        # current_start_time = time.time()
+        # print(f"current step: {iter}, totol time: {totol_time:.2f} second, time elapsed: {elapsed_time:.2f} seconds")
+        
+        
+        
 class gt_flower_rxr():
     def __init__(self,split_str="train"):
         dataset_gt_filename = "data/datasets/RxR_VLNCE_v0/{split}/{split}_guide_gt.json.gz".format(split=split_str)
@@ -321,6 +397,8 @@ def gt_inference_rxr(config: Config) -> None:
     IMAGE_DIR = os.path.join("output", "images")
     if not os.path.exists(IMAGE_DIR):
         os.makedirs(IMAGE_DIR)
+        
+    render_top_down_map = False
 
     
     # split = config.INFERENCE.SPLIT
@@ -339,9 +417,17 @@ def gt_inference_rxr(config: Config) -> None:
     # print(config.TASK_CONFIG.TASK.SENSORS)
     # exit()
     
+    # config.TASK_CONFIG.TASK.MEASUREMENTS.append("TOP_DOWN_MAP_VLNCE")
+    
     # 默认的这个RXR_INSTRUCTION_SENSOR 带着 text_feature ，对我们来说没啥用
     # config.TASK_CONFIG.TASK.SENSORS =["RXR_INSTRUCTION_SENSOR"]
-    config.TASK_CONFIG.TASK.SENSORS =["INSTRUCTION_SENSOR"]
+    # config.TASK_CONFIG.TASK.SENSORS =["DISTANCE_TO_GOAL"]
+    
+    config.TASK_CONFIG.TASK.SENSORS = ['INSTRUCTION_SENSOR', "HEADING_SENSOR", "GLOBAL_GPS_SENSOR","POSITION_SELF_SENSOR"]
+    config.TASK_CONFIG.TASK.MEASUREMENTS.append("DISTANCE_TO_GOAL")
+    
+    if(render_top_down_map):
+        config.TASK_CONFIG.TASK.MEASUREMENTS.append("TOP_DOWN_MAP_VLNCE")
     
     config.freeze()
     
@@ -405,8 +491,6 @@ def gt_inference_rxr(config: Config) -> None:
         current_start_time = time.time()
         print(f"current step: {iter}, totol time: {totol_time:.2f} second, time elapsed: {elapsed_time:.2f} seconds")
     
-    
-
 
 class QwenVLMAgent:
     def __init__(self):
@@ -427,7 +511,7 @@ class QwenVLMAgent:
     def parse_obs(self, observatioons):
         # return 
         pass
-    def act(self, observations):
+    def act_and_send_image_list(self, observations):
         
         # inst,images = self.parse_obs(observations)
         if(self.current_step == 0):
@@ -464,6 +548,34 @@ class QwenVLMAgent:
             print(f"Invalid command: {action_str}")
             return None, 0
         
+    def act(self, observations):
+        
+        im = observations["rgb"]
+        self.image_cycle_list = [im]
+        
+        # inst,images = self.parse_obs(observations)
+        if(self.current_step == 0):
+            # send instruction and images
+            instruction = observations["instruction"]["text"]
+            self.sender.set_command(instruction)
+            self.sender.send_images(self.image_cycle_list, include_command=True)
+        else:
+            # sender.set_command(instruction)
+            self.sender.send_images(self.image_cycle_list, include_command=False)
+            
+        action_str = self.sender.get_aciton_str().get("message")
+        
+        if self.validate_command(action_str):
+            self.current_step += 1
+            action, step = self.parse_action_str(action_str)
+            if step<=3:
+                return action, step
+            else:
+                print(f"Invalid command: {action_str}")
+                return None, 0
+        else:
+            print(f"Invalid command: {action_str}")
+            return None, 0
         
     
     def validate_command(self, command):
@@ -561,6 +673,15 @@ def qwen_inference(config: Config, data_split:str) -> None:
     episode_predictions = defaultdict(list)
     stats = defaultdict(float)
     
+    # gt_json = ''
+    # with gzip.open("data/datasets/R2R_VLNCE_v1-3_preprocessed/{split}/{split}_gt.json.gz".format(split=config.TASK_CONFIG.DATASET.SPLIT), "rt") as f:
+    #     gt_json = json.load(f)
+    # print("gt_json keys:", gt_json.keys())
+    # exit()
+    episodes_count = 1
+    
+    episode_list = []
+    
     for _ in tqdm(range(len(env.episodes)), desc=f"[inference:{split}]"):
         obs = env.reset()
         episode_id = env.current_episode.episode_id
@@ -578,9 +699,18 @@ def qwen_inference(config: Config, data_split:str) -> None:
         # 包含正则表达式，判断返回指令是否符合要求
         action,step = agent.act(obs)
 
-        while(action is None):
+        repeat_count = 0
+        sim_step = 0
+        while(action is None and not env.get_done(obs)):
             print("last action is none, try inference again")
-            action,step = agent.act(obs)
+            repeat_count += 1
+            if (repeat_count > 3):
+                print("Repeat too much times, stop")
+                obs = env.step(HabitatSimActions.STOP)
+                break
+            else:
+                # action,step = agent.act(obs[0])
+                action,step = agent.act(obs)
         
         # episode_predictions[episode_id].append(env.get_info(obs))
         # episode_predictions[episode_id].append(env.get_info(obs))
@@ -589,31 +719,50 @@ def qwen_inference(config: Config, data_split:str) -> None:
         while not env.get_done(obs):
             for i in range(int(step)-1):
                 obs = env.step(action)
+                sim_step +=1
             obs = env.step(action)
+            sim_step +=1
             action,step = agent.act(obs[0])
 
-            while(action is None):
+            repeat_count = 0
+            while(action is None and not env.get_done(obs)):
                 print("last action is none, try inference again")
-                action,step = agent.act(obs[0])
+                repeat_count += 1
+                if (repeat_count > 3):
+                    print("Repeat too much times, stop")
+                    obs = env.step(HabitatSimActions.STOP)
+                    break
+                else:
+                    action,step = agent.act(obs[0])
             
             # episode_predictions[episode_id].append(env.get_info(obs))
             
             # print(episode_predictions[episode_id])
-            if(agent.current_step > 100 and not env.get_done(obs)):
-                print("Reach max step limit, break")
+            
+            # # Forceing stop using llm inference step
+            # if(agent.current_step > 120 and not env.get_done(obs)):
+            #     print("Reach max step limit, break")
+            #     obs = env.step(HabitatSimActions.STOP)
+            
+            # Forceing stop using sim step
+            if(sim_step > 120 and not env.get_done(obs)):
+                print("Reach max sim step limit, break")
                 obs = env.step(HabitatSimActions.STOP)
-                # break
+                
+            
             
             # # 到达目标，强制停止 
-            # if(env.get_info(obs).items()["distance_to_goal"] < 3.0 and not env.get_done(obs)):
+            # if(env.get_info(obs)["distance_to_goal"] < 1.5 and not env.get_done(obs)):
             #     print("Reach goal, break")
             #     obs = env.step(HabitatSimActions.STOP)
+            
+        episode_stats = env.get_info(obs)
         
         # for m, v in env.get_metrics().items():
-        for m, v in env.get_info(obs).items():
+        for m, v in episode_stats.items():
             if(m != "top_down_map_vlnce"):
                 stats[m] += v
-                print(m, v)
+                print(m, v, stats[m]/episodes_count)
             else:
                 # print("top_down_map_vlnce:", v)
                 top_down_map = v['map']
@@ -632,6 +781,12 @@ def qwen_inference(config: Config, data_split:str) -> None:
                 # 将 uint8 类型的 top_down_map 进行处理
                 
                 imageio.imwrite(f"{output_dir}/top_down_map_vlnce_{episode_id}.jpg", top_down_map)
+        
+        episodes_count +=1
+        
+        episode_list.append({"episode_id": episode_id , "total_steps":sim_step,"success":episode_stats["success"],"distance_to_goal":episode_stats["distance_to_goal"],"oracle_success":episode_stats["oracle_success"],"path_length":episode_stats["path_length"]})
+        
+
             
     # with open(config.INFERENCE.PREDICTIONS_FILE, "w") as f:
     #     json.dump(episode_predictions, f, indent=2)
@@ -644,7 +799,11 @@ def qwen_inference(config: Config, data_split:str) -> None:
     for stat_key in stats.keys():
         logger.info("{}: {:.3f}".format(stat_key, stats[stat_key]))
 
-    with open(f"stats_{config.EVAL.NONLEARNING.AGENT}_{split}.json", "w") as f:
+    with open(f"{output_dir}/stats_{config.EVAL.NONLEARNING.AGENT}_{split}.json", "w") as f:
         json.dump(stats, f, indent=4)
+        
+    # 写入 episode_list 到文件
+    with open(f"{output_dir}/episode_list_{config.EVAL.NONLEARNING.AGENT}_{split}.json", "w") as f:
+        json.dump(episode_list, f, indent=4)
     
     

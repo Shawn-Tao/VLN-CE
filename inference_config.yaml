@@ -444,11 +444,12 @@ TASK_CONFIG:
     INSTRUCTION_SENSOR:
       TYPE: InstructionSensor
     INSTRUCTION_SENSOR_UUID: instruction
-    MEASUREMENTS: []
+    MEASUREMENTS:
+    - DISTANCE_TO_GOAL
     NDTW:
       FDTW: true
       GT_PATH: data/datasets/R2R_VLNCE_v1-3_preprocessed/{split}/{split}_gt.json.gz
-      SPLIT: train
+      SPLIT: val_unseen
       SUCCESS_DISTANCE: 3.0
       TYPE: NDTW
     OBJECTGOAL_SENSOR:
@@ -479,6 +480,8 @@ TASK_CONFIG:
       DIMENSIONALITY: 2
       GOAL_FORMAT: POLAR
       TYPE: PointGoalWithGPSCompassSensor
+    POSITION_SELF_SENSOR:
+      TYPE: PositionSelfSensor
     POSSIBLE_ACTIONS:
     - STOP
     - MOVE_FORWARD
@@ -496,6 +499,9 @@ TASK_CONFIG:
       TYPE: SDTW
     SENSORS:
     - INSTRUCTION_SENSOR
+    - HEADING_SENSOR
+    - GLOBAL_GPS_SENSOR
+    - POSITION_SELF_SENSOR
     SHORTEST_PATH_SENSOR:
       GOAL_RADIUS: 0.5
       TYPE: ShortestPathSensor

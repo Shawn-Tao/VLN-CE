@@ -149,3 +149,6 @@ sbatch_scripts
 
 output
 test_image_path
+predictions.json
+*.jsonl
+my_scripts/*.json

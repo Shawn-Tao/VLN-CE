@@ -260,7 +260,8 @@ class NDTW(Measure):
                 config.GT_PATH.format(split=config.SPLIT), "rt"
             ) as f:
                 self.gt_json = json.load(f)
-
+                
+        # print(self.gt_json.keys())
         super().__init__()
 
     def _get_uuid(self, *args: Any, **kwargs: Any) -> str:
