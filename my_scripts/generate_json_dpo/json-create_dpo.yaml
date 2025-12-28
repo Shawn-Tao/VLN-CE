@@ -2,7 +2,7 @@ qwen_r2r_dataset_cfg:
 
   # Json文件保存路径
   # json_file_save_path: "r2r_train_424_240.json"
-  json_file_save_path: "r2r_orpo_train_424_240_more_stop.jsonl"
+  json_file_save_path: "r2r_orpo_train_424_240_qwen3vl_1p1_tau3.jsonl"
   # 图像数据集路径
   # dataset_file_path: "/home/sy1106/HDD/TZL/LLM-VLM/LLaMA-Factory/data/vln_datasets/r2r_train_424_240"
   dataset_file_path: "/home/sy1106/HDD/TZL/LLM-VLM/datasets/rl_vln/r2r_train_424_240"

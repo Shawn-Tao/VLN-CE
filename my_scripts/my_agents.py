@@ -491,6 +491,18 @@ def gt_inference_rxr(config: Config) -> None:
         current_start_time = time.time()
         print(f"current step: {iter}, totol time: {totol_time:.2f} second, time elapsed: {elapsed_time:.2f} seconds")
     
+cmd2str_map = {
+    "move_forward 0.25": "move forward 0.25 meters",
+    "move_forward 0.5":  "move forward 0.50 meters",
+    "move_forward 0.75": "move forward 0.75 meters",
+    "turn_left 15":      "turn left 15 degrees",
+    "turn_left 30":      "turn left 30 degrees",
+    "turn_left 45":      "turn left 45 degrees",
+    "turn_right 15":     "turn right 15 degrees",
+    "turn_right 30":     "turn right 30 degrees",
+    "turn_right 45":     "turn right 45 degrees",
+    "stop":              "stop"
+}
 
 class QwenVLMAgent:
     def __init__(self):
@@ -565,9 +577,14 @@ class QwenVLMAgent:
             
         action_str = self.sender.get_aciton_str().get("message")
         
-        if self.validate_command(action_str):
+        bool_value,type_recv = self.validate_command(action_str)
+        if bool_value:
             self.current_step += 1
-            action, step = self.parse_action_str(action_str)
+            if(type_recv == "str"):
+                action, step = self.parse_action_str(action_str)
+            elif (type_recv == "cmd"):
+                action, step = self.parse_action_cmd(action_str)
+                # action, step = self.parse_action_str(cmd2str_map[action_str])
             if step<=3:
                 return action, step
             else:
@@ -577,14 +594,23 @@ class QwenVLMAgent:
             print(f"Invalid command: {action_str}")
             return None, 0
         
-    
     def validate_command(self, command):
-        pattern = r'^(?:move forward (?:\.\d+|\d+(?:\.\d*)?) meters|turn left \d+ degrees|turn right \d+ degrees|stop)$'
-        return bool(re.match(pattern, command))
+        type_recv = "invalid command"
+        value_bool = False
+        pattern_str = r'^(?:move forward (?:\.\d+|\d+(?:\.\d*)?) meters|turn left \d+ degrees|turn right \d+ degrees|stop)$'
+        str_bool = bool(re.match(pattern_str, command))
+        pattern_cmd = r'^(?:move_forward (?:\.\d+|\d+(?:\.\d*)?)|turn_left \d+|turn_right \d+|stop)$'
+        cmd_bool = bool(re.match(pattern_cmd, command))
+        if str_bool == True:
+            type_recv = "str"
+            value_bool = True
+        elif cmd_bool == True:
+            type_recv = "cmd"
+            value_bool = True
+        return value_bool, type_recv
     
     # 需要修改，增加对数字的正则表达
     def parse_action_str(self, action_str:str):
-        
         move_match = re.search(r'move forward', action_str)
         if(move_match != None):
             meter_match = re.search(r'meter', action_str)
@@ -606,6 +632,34 @@ class QwenVLMAgent:
             elif(turn_right_match != None):
                 degree_match = re.search(r'degrees', action_str)
                 degree_str = action_str[turn_right_match.end()+1:degree_match.start()-1]
+                degree = float(degree_str)
+                # print("turn: ", degree)
+                num_step = degree/15
+                return HabitatSimActions.TURN_RIGHT, num_step
+            else:
+                stop_match = re.search(r'stop', action_str)
+                # print("stop")
+                return HabitatSimActions.STOP, 1
+            
+    def parse_action_cmd(self, action_str:str):
+        move_match = re.search(r'move_forward', action_str)
+        if(move_match != None):
+            distance_str = action_str[move_match.end()+1:]
+            distance = float(distance_str)
+            # print("move: ", distance)
+            num_step = distance/0.25
+            return HabitatSimActions.MOVE_FORWARD, num_step
+        else:
+            turn_left_match = re.search(r'turn_left', action_str)
+            turn_right_match = re.search(r'turn_right', action_str)
+            if(turn_left_match != None):
+                degree_str = action_str[turn_left_match.end()+1:]
+                degree = float(degree_str)
+                # print("turn: ", degree)
+                num_step = degree/15
+                return HabitatSimActions.TURN_LEFT, num_step
+            elif(turn_right_match != None):
+                degree_str = action_str[turn_right_match.end()+1:]
                 degree = float(degree_str)
                 # print("turn: ", degree)
                 num_step = degree/15

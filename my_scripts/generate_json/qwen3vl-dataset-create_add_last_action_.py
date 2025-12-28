@@ -7,17 +7,12 @@ from pathlib import Path
 from omegaconf import OmegaConf
 import orjson 
 import numpy as np
-import re
-
-# import 当前目录下的softmax_sample文件夹，使用os
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'softmax_sample')))
 from datetime import datetime
-
-from softmax_sample.reject_generate import ACTION_CLASS,sample_reject_action_softmax,STR_TO_ACTIONS,ACTIONS_TO_STR
 
 def list_first_level(path):
     return [str(child.absolute()) for child in Path(path).iterdir()]
+
+# print(list_first_level("data"))
 
 def list_first_level(path):
     contents = []
@@ -64,20 +59,76 @@ def merge_separately(*datasets):
         "messages": merged_messages,
         "images": [str(img_id) for img_id in sorted_images]
     }
+    
+    
+SYSTEM_PROMPT_FULL = """You are a navigation agent operating in a 3D indoor environment.
+
+You control the agent using discrete actions that correspond to physical movements.
+
+Action physical semantics:
+- Forward actions move the agent straight ahead by a fixed distance measured in meters.
+- Turning actions rotate the agent in place by a fixed angle measured in degrees.
+
+Action definitions:
+{action_definitions}
+
+When selecting actions, consider:
+- Smaller forward distances for fine position adjustment.
+- Larger forward distances for approaching distant targets.
+- Smaller rotation angles for fine heading correction.
+- Larger rotation angles for major direction changes.
+
+Action selection rules:
+- Output exactly ONE action.
+- The output must exactly match one of the action names above.
+- Do not output explanations or reasoning.
+
+If the task is complete, output:
+stop"""
+
+
+SYSTEM_PROMPT_MINIMAL = """You are a navigation agent.
+
+Output exactly ONE action from the predefined action set.
+Do not output explanations."""
+
+
+action_definitions = "\n".join([
+    "- move_forward 0.25: move forward by approximately 0.25 meters.",
+    "- move_forward 0.5: move forward by approximately 0.50 meters.",
+    "- move_forward 0.75: move forward by approximately 0.75 meters.",
+    "- turn_left 15: rotate left by approximately 15 degrees.",
+    "- turn_left 30: rotate left by approximately 30 degrees.",
+    "- turn_left 45: rotate left by approximately 45 degrees.",
+    "- turn_right 15: rotate right by approximately 15 degrees.",
+    "- turn_right 30: rotate right by approximately 30 degrees.",
+    "- turn_right 45: rotate right by approximately 45 degrees.",
+    "- stop: no movement."
+])
 
 class Json_Templater:
     def __init__(self):
-        self.config = load_yamls_from_dir("generate_json_dpo")
-        date_prefix = datetime.now().strftime("%Y%m%d")
+        self.config = load_yamls_from_dir("generate_json")
+        date_prefix = datetime.now().strftime("%Y%m%d%H%M%S")
         self.json_file_save_path = f'{date_prefix}_{self.config.qwen_r2r_dataset_cfg.json_file_save_path}'
+        # self.json_file_save_path = self.config.qwen_r2r_dataset_cfg.json_file_save_path
         self.dataset_file_path = self.config.qwen_r2r_dataset_cfg.dataset_file_path
         
-        self.template_header_str = f"You are a robot programmed for navigation tasks. You have been given "
-        self.temlpate_history_str = f"a series of historical observations:<history_image> and "
-        self.template_current_str = f"the current observation: <image>. "
-        self.template_last_action_str = f"Your last action is: \"<action>\". "
+        # self.template_system_str = f"You are a navigation agent. You must choose exactly one action. The action must follow the schema: ACTION: <move_forward some meters| turn_left some angles| turn_right some angels| stop> VALUE: <float or angle>"
         
-        self.template_task_str = f"Your assigned task is: \"<task>\". Analyze the above information and decide your next action: whether to move forward a specific distance, turn left or right by a specific angle, or stop if the task is complete."
+        self.template_system_str = SYSTEM_PROMPT_FULL.format(action_definitions=action_definitions)
+        
+        self.template_user_history_str = f"Historical observations: <history_image>\n"
+        self.template_user_current_str = f"Current observation: <image>\n"
+        self.template_user_action_str = f"Last action: \"<action>\"\n"
+        self.template_user_task_str = f"Task: \"<task>\"\n"        
+        
+        # self.template_header_str = f"You are a robot programmed for navigation tasks. You have been given "
+        # self.temlpate_history_str = f"serial of historical obervations:<history_image> and "
+        # self.template_current_str = f"current observation: <image>. "
+        # self.template_last_action_str = f"You last action is: \"<action>\"."
+        
+        # self.template_task_str = f"Your assigned task is: \"<task>\". Analyze the above information and decide your next action: whether to move forward a specific distance, turn left or right by a specific angle, or stop if the task is complete."
         
         self.max_historical_image_num = self.config.qwen_r2r_dataset_cfg.max_historical_image_num
         self.max_action_sequence_length = self.config.qwen_r2r_dataset_cfg.max_action_sequence_length
@@ -88,15 +139,36 @@ class Json_Templater:
         
         self.uniform_sample_history = self.config.qwen_r2r_dataset_cfg.uniform_sample_history
 
-    def create_json_template(self):
+    def create_json_template(self,type):
         # Create the JSON template
-        json_data = {
-            "conversions": [],
-            "chosen":{},
-            "reject":{},
-            "image": []
-        }
+        json_data = None
+        if(type == "src"):
+            json_data = {
+                "messages": [],
+                "images": []
+            }
+        
         return json_data
+    
+    # def merge_action(self, action_list ,upper_limit_action_number):
+    #     mergerd_action_list = []
+    #     disapper_action_index = []
+        
+    #     for i in range(len(action_list)):
+    #         mergerd_action_list.append(action_list[i])
+    #         if i < len(action_list) - upper_limit_action_number:
+    #             for j in range(upper_limit_action_number - 1):
+    #                 if action_list[i+j+1] == action_list[i]:
+    #                     disapper_action_index.append(i+j+1)
+    #                     mergerd_action_list[i]  = f"{mergerd_action_list[i]} {action_list[i+j+1]}"
+    #                 else:
+    #                     i += j
+    #         else:
+    #             left_action_number = len(action_list) - i
+    #             if left_action_number <= 1:
+    #             # current_limit = upper_limit_action_number
+                
+    #     return mergerd_action_list, disapper_action_index
     
     def merge_actions(self, action_list, max_length):
         if not action_list:
@@ -147,8 +219,6 @@ class Json_Templater:
         current_time = time.time()
         end_time = time.time()
         
-        # total_data_count = 1
-        
         total_stop_count = 0
         
         for folder in folder_list:
@@ -161,7 +231,6 @@ class Json_Templater:
                 print(f"{folder_count} / {len(folder_list)} , {duration} , {totol_duration}")
             
             episode_id = folder.split("/")[-1]
-            images_save_path_list = list_first_level(folder)
             
             instruction_str = ""
             action_str = ""
@@ -194,29 +263,42 @@ class Json_Templater:
             # 每个动作生成一条数据
             for step in range(len(merged_actions)):
                 # 单个动作生成一条数据
-                # json_data= self.create_json_template()
-                action_str = self.action_to_str(merged_actions[step])
-                reject_action_str = "stop"
+                json_data= self.create_json_template("src")
+                # action_str = self.action_to_str(merged_actions[step])
+                action_str = self.action_to_schema_str(merged_actions[step])
+                
                 # print(action_str)
+                
+                #! 修改思路，当 distance_to_goal 小于一定值，将action_str修改为 "stop"，从而增加stop数据的数量。目前在 33w条数据中，stop数据仅有1w条左右，占比过少。
+                # if(priv_info["distance_to_goal"][merged_indices[step][0]] < 1.6):
+                #     action_str = "stop"
 
-                # json_assistant = {
-                #     "conversations": [
-
-                #     ]
-                # }
+                json_assistant = {
+                    "messages": [{
+                        "content": f"{action_str}",
+                        "role": "assistant"
+                        }
+                    ]
+                }
                 
                 header_str = ""
                 history_str = ""
                 current_str = ""
                 task_str = ""
-                history_action_str = ""
+                
+                # self.template_system_str = SYSTEM_PROMPT_FULL.format(action_definitions=action_definitions)
+        
+                # self.template_user_history_str = f"Historical observations: <history_image> "
+                # self.template_user_current_str = f"Current observation: <image> "
+                # self.template_user_action_str = f"Last action: \"<action>\" "
+                # self.template_user_task_str = f"Task: \"<task>\" "        
                 
                 # 不用绝对路径了，改成相对路径，因为docker里面找路径和主机不一样
                 image_list = []
                 
-                header_str = self.template_header_str
-                current_str = self.template_current_str
-                task_str = self.template_task_str.replace("<task>", instruction_str)
+                header_str = self.template_system_str
+                current_str = self.template_user_current_str
+                task_str = self.template_user_task_str.replace("<task>", instruction_str)
                 # task_str = f'{self.template_task_str}'.replace("<task>", instruction_str)
                 
                 if(step == 0):
@@ -226,7 +308,7 @@ class Json_Templater:
                     if(step < self.max_historical_image_num):    
                         for i in range(step):
                             historical_image_str += f" <image>"
-                        history_str = self.temlpate_history_str.replace("<history_image>",historical_image_str)
+                        history_str = self.template_user_history_str.replace("<history_image>",historical_image_str)
                         for i in range(step):
                             image_list.append(f"{self.prefix}/{episode_id}/{episode_id}_{merged_indices[step-i-1][0]}.jpg")
                         image_list.reverse()  # 这里我们是倒着放的，所以需要反转
@@ -234,7 +316,7 @@ class Json_Templater:
                     else:
                         for i in range(self.max_historical_image_num):
                             historical_image_str += f" <image>"
-                        history_str = self.temlpate_history_str.replace("<history_image>",historical_image_str)
+                        history_str = self.template_user_history_str.replace("<history_image>",historical_image_str)
                         
                         if self.uniform_sample_history:
                             start_to_current_indices = merged_indices[:step+1]
@@ -251,7 +333,7 @@ class Json_Templater:
                 
                 # 截取先前的动作序列
                 action_squence = []
-                
+                history_action_str = ""
                 if step > 0:
                     if step < self.max_action_sequence_length:
                         action_squence = merged_actions[:step]
@@ -259,74 +341,43 @@ class Json_Templater:
                         action_squence = merged_actions[step - self.max_action_sequence_length:step]
                 if len(action_squence) > 0:
                     # 将动作序号转换成字符串
-                    action_squence_str = self.action_to_str(action_squence[-1])
-                    history_action_str = self.template_last_action_str.replace("<action>", action_squence_str)
-                    
-                #! 修改思路，当 distance_to_goal 小于一定值，将action_str修改为 "stop"，从而增加stop数据的数量。目前在 33w条数据中，stop数据仅有1w条左右，占比过少。
-                #! 再次修改，生成更加丰富的偏好数据集
-                tau = 3
-                # if(priv_info["distance_to_goal"][merged_indices[step][0]] < 1.6):
-                if(priv_info["distance_to_goal"][merged_indices[step][0]] < 1.1):
-                    # print("change to stop")
-                    if(action_str != "stop"):
-                        action_str = "stop"
-                    reject_action, _, _ = sample_reject_action_softmax(action_str, tau=tau)
-                    reject_action_str = ACTIONS_TO_STR[reject_action]
-                else:
-                    reject_action, _, _ = sample_reject_action_softmax(STR_TO_ACTIONS[action_str], tau=tau)
-                    reject_action_str = ACTIONS_TO_STR[reject_action]
-
-                # print("chosen:", action_str, "  reject:", reject_action_str)
-                        
-                    
-                # json_data = {
-                #     # "id": total_data_count,
-                #     "conversations": [
-                #         {"from": "human", "value": f"{header_str}{history_str}{current_str}{history_action_str}{task_str}"},
-                #         {"from": "gpt", "value": f"{action_str}"},
-                #     ],
-                #     "image": image_list,
-                #     "goal_position":priv_info["goal_position"],
-                #     "distance_to_goal":priv_info["distance_to_goal"][merged_indices[step][0]],
-                #     "agent_position":priv_info["current_gps_pos"][merged_indices[step][0]],
-                #     "agent_heading":priv_info["current_heading"][merged_indices[step][0]]
-                # }
+                    # action_squence_str = self.action_to_str(action_squence[-1])
+                    action_squence_str = self.action_to_schema_str(action_squence[-1])
+                    # print(action_squence_str)
+                    # history_action_str = self.template_last_action_str.replace("<action>", action_squence_str[:-1])
+                    history_action_str = self.template_user_action_str.replace("<action>", action_squence_str)
                 
-                json_data = {
-                    # "id": total_data_count,
-                    "conversations": [
-                        {"from": "human", "value": f"{header_str}{history_str}{current_str}{history_action_str}{task_str}"},
+                json_user = {
+                    "messages": [
+                        {
+                            "content": f"{header_str}",
+                            "role": "system"
+                        },
+                        {
+                            "content": f"{history_str}{current_str}{history_action_str}{task_str}",
+                            "role": "user"
+                        }
                     ],
-                    "chosen":{"from": "gpt", "value": f"{action_str}"},
-                    "rejected":{"from": "gpt", "value": f"{reject_action_str}"},
-                    "images": image_list,
+                    "images": image_list
                 }
                 
-
-                    
-                if(action_str == "stop"):
-                    total_stop_count += 1
-                
-                    # print(f"distance_to_goal: {priv_info['distance_to_goal'][merged_indices[step][0]]}, action_str: {action_str}")
-                
-                # total_data_count +=1
-                
-                # 去掉json_data中的换行，以便写入jsonl文件中
-                
+                json_data["messages"].extend([json_user["messages"][0],json_user["messages"][1],json_assistant["messages"][0]])
+                json_data["images"].extend(image_list)
                 
                 # 将json_data 写入 总的dict
                 r2r_data_set_json.append(json_data)
-        
-        print("***************************************total_stop_count:",total_stop_count)
                 
-        # save json_data using orjson
+                if(action_str == "stop"):
+                    total_stop_count += 1
+                
+        print("***************************************total_stop_count:",total_stop_count)
         
+        # print(json_data)    
+        # save json_data using orjson
+        json_bytes = orjson.dumps(r2r_data_set_json, f, option=orjson.OPT_INDENT_2)
         # with open(f"{folder}/{episode_id}.json", "w") as f:
         with open(f"{self.json_file_save_path}", "wb") as f:
-            for item in r2r_data_set_json:
-                f.write(orjson.dumps(item) + b"\n")
-                # json_bytes = orjson.dumps(item, f, option=orjson.OPT_INDENT_2)
-                # f.write(json_bytes)       
+            f.write(json_bytes)       
                
         # exit()
     def action_to_str(self, action):
@@ -342,6 +393,18 @@ class Json_Templater:
         else:
             return action
         
+    def action_to_schema_str(self, action):
+        # Convert action to string
+        if action == "0":
+            return "stop"
+        elif action[0] == "1":
+            return f"move_forward {0.25*len(action)}"
+        elif action[0] == "2":
+            return f"turn_left {15*len(action)}"
+        elif action[0] == "3":
+            return f"turn_right {15*len(action)}"
+        else:
+            return action   
     
 if __name__ == "__main__":
     json_templater = Json_Templater()
