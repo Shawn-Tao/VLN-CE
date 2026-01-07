@@ -600,6 +600,7 @@ class QwenVLMAgent:
         pattern_str = r'^(?:move forward (?:\.\d+|\d+(?:\.\d*)?) meters|turn left \d+ degrees|turn right \d+ degrees|stop)$'
         str_bool = bool(re.match(pattern_str, command))
         pattern_cmd = r'^(?:move_forward (?:\.\d+|\d+(?:\.\d*)?)|turn_left \d+|turn_right \d+|stop)$'
+        # pattern_cmd = r'^(?:move_forward\s+(?:\.\d+|\d+(?:\.\d*)?)|turn_(?:left|right)\s+\d+|stop)$'
         cmd_bool = bool(re.match(pattern_cmd, command))
         if str_bool == True:
             type_recv = "str"

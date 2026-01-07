@@ -141,7 +141,7 @@ data
 .log
 
 # evaluation results
-stats_*.json
+stats_
 
 # custom slurm utils
 sbatch_scripts
@@ -151,4 +151,6 @@ output
 test_image_path
 predictions.json
 *.jsonl
+
 my_scripts/*.json
+my_scripts/datasets_bak/*.json

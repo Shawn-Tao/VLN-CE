@@ -388,7 +388,7 @@ class Json_Templater:
                 #         },
                 #     ],
                 #     "chosen":{"from": "gpt", "value": f"{action_str}"},
-                #     "rejected":{"from": "gpt", "value": f"{reject_action_str}"},
+                #     "rejected":{"from": "gpt", "value": f"{   reject_action_str}"},
                 #     "images": image_list,
                 # }
                 
