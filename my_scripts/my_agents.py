@@ -577,6 +577,9 @@ class QwenVLMAgent:
             
         action_str = self.sender.get_aciton_str().get("message")
         
+        # 去掉尾部多余符号
+        action_str = action_str.strip().rstrip('"\'.')
+        
         bool_value,type_recv = self.validate_command(action_str)
         if bool_value:
             self.current_step += 1
@@ -800,7 +803,11 @@ def qwen_inference(config: Config, data_split:str) -> None:
             #     obs = env.step(HabitatSimActions.STOP)
             
             # Forceing stop using sim step
-            if(sim_step > 120 and not env.get_done(obs)):
+            # if(sim_step > 250 and not env.get_done(obs)):
+            #     print("Reach max sim step limit, break")
+            #     obs = env.step(HabitatSimActions.STOP)
+            
+            if(sim_step > 100 and not env.get_done(obs)):
                 print("Reach max sim step limit, break")
                 obs = env.step(HabitatSimActions.STOP)
                 

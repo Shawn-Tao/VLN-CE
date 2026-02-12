@@ -2,14 +2,19 @@ ENVIRONMENT:
   MAX_EPISODE_STEPS: 500
 
 SIMULATOR:
-  TURN_ANGLE: 30
-  TILT_ANGLE: 30
+  # TURN_ANGLE: 30
+  # TILT_ANGLE: 30
+  TURN_ANGLE: 15
+  TILT_ANGLE: 15
   ACTION_SPACE_CONFIG: v1
   AGENT_0:
     # SENSORS: [RGB_SENSOR, DEPTH_SENSOR]
     SENSORS: [RGB_SENSOR]
-    HEIGHT: 0.88
-    RADIUS: 0.18
+    # HEIGHT: 0.88
+    # RADIUS: 0.18
+
+    HEIGHT: 1.5
+    RADIUS: 0.1
   HABITAT_SIM_V0:
     GPU_DEVICE_ID: 0
     ALLOW_SLIDING: False
@@ -22,7 +27,8 @@ SIMULATOR:
     WIDTH: 424
     HEIGHT: 240
     HFOV: 90
-    POSITION: [0, 0.88, 0]
+    # POSITION: [0, 0.88, 0]
+    POSITION: [0, 1.25, 0]
   DEPTH_SENSOR:
     # WIDTH: 640
     # HEIGHT: 480
@@ -60,7 +66,7 @@ DATASET:
   TYPE: RxR-VLN-CE-v1
   SPLIT: train
   ROLES: [guide]  # "*", "guide", "follower"
-  LANGUAGES: [en-US, en-IN]  #  "*", "te-IN", "hi-IN", "en-US", "en-IN"
-  # LANGUAGES: [en-US]  #  "*", "te-IN", "hi-IN", "en-US", "en-IN"
+  # LANGUAGES: [en-US, en-IN]  #  "*", "te-IN", "hi-IN", "en-US", "en-IN"
+  LANGUAGES: [en-US]  #  "*", "te-IN", "hi-IN", "en-US", "en-IN"
   DATA_PATH: data/datasets/RxR_VLNCE_v0/{split}/{split}_{role}.json.gz
   SCENES_DIR: data/scene_datasets/
