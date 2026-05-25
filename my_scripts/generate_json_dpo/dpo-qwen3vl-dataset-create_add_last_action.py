@@ -385,7 +385,7 @@ class Json_Templater:
                         STR_TO_ACTIONS[reject_action_str_long]
                     )
                     scaled_dissim = scale_dissim(raw_dissim, self.dissim_min, self.dissim_max)
-                    json_data["dissim"] = round(scaled_dissim, 4)
+                    json_data["dissim"] = round(float(scaled_dissim), 4)
                 
                 # json_data = {
                 #     # "id": total_data_count,
