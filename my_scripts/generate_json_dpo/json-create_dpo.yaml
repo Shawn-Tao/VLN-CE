@@ -19,6 +19,11 @@ qwen_r2r_dataset_cfg:
 
   # 是否对历史图像进行均匀采样，否的话只取样最近的几帧图像
   uniform_sample_history: True
+
+  # Dissimilarity range for preference pair weight (scaled from motion embedding distance)
+  use_dissim: True
+  dissim_min: 0.5
+  dissim_max: 1.5
   
   # dataset_file_path: "/home/sy1106/HDD/TZL/VLN/latest_version/my_habitat-sample/utils/images"
   # dataset_file_path: "/home/sy1106/HDD/TZL/VLN/latest_version/my_habitat-sample/examples/images/r2r_train"

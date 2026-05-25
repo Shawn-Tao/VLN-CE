@@ -66,6 +66,45 @@ ACTION_CLASS = {
     "stop": "stop"
 }
 
+# Motion embedding: unit-commensurate normalized vectors [theta/15deg, d/0.25m]
+MOTION_EMBEDDING = {
+    "turn_left_45":   np.array([-3,  0]),
+    "turn_left_30":   np.array([-2,  0]),
+    "turn_left_15":   np.array([-1,  0]),
+    "forward_0.25":   np.array([ 0,  1]),
+    "forward_0.5":    np.array([ 0,  2]),
+    "forward_0.75":   np.array([ 0,  3]),
+    "turn_right_15":  np.array([ 1,  0]),
+    "turn_right_30":  np.array([ 2,  0]),
+    "turn_right_45":  np.array([ 3,  0]),
+    "stop":           np.array([ 0,  0]),
+}
+
+# Precompute raw dissim range across all cross-class pairs
+_DISSIM_VALUES = []
+for _a, _va in MOTION_EMBEDDING.items():
+    for _b, _vb in MOTION_EMBEDDING.items():
+        if _a == _b or ACTION_CLASS[_a] == ACTION_CLASS[_b]:
+            continue
+        _DISSIM_VALUES.append(np.linalg.norm(_va - _vb))
+DISSIM_RAW_MIN = min(_DISSIM_VALUES)
+DISSIM_RAW_MAX = max(_DISSIM_VALUES)
+
+
+def compute_dissim(chosen_action: str, rejected_action: str) -> float:
+    """Compute normalized Euclidean distance in the motion embedding space."""
+    return float(np.linalg.norm(
+        MOTION_EMBEDDING[chosen_action] - MOTION_EMBEDDING[rejected_action]
+    ))
+
+
+def scale_dissim(raw_dissim: float, min_val: float = 0.5, max_val: float = 1.5) -> float:
+    """Scale raw dissim to [min_val, max_val] range linearly."""
+    if DISSIM_RAW_MAX == DISSIM_RAW_MIN:
+        return min_val
+    return min_val + (raw_dissim - DISSIM_RAW_MIN) / (DISSIM_RAW_MAX - DISSIM_RAW_MIN) * (max_val - min_val)
+
+
 def softmax(x):
     x = x - np.max(x)  # 防止溢出
     return np.exp(x) / np.sum(np.exp(x))

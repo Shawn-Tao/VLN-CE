@@ -154,3 +154,6 @@ predictions.json
 
 my_scripts/*.json
 my_scripts/datasets_bak/*.json
+
+my_scripts/generate_json/images
+data/*

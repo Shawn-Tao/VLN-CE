@@ -14,7 +14,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'softmax_sample')))
 from datetime import datetime
 
-from softmax_sample.reject_generate import ACTION_CLASS,sample_reject_action_softmax,STR_TO_ACTIONS,ACTIONS_TO_STR
+from softmax_sample.reject_generate import ACTION_CLASS,sample_reject_action_softmax,STR_TO_ACTIONS,ACTIONS_TO_STR,compute_dissim,scale_dissim
 from collections import Counter
 
 
@@ -154,6 +154,10 @@ class Json_Templater:
         self.if_reduce_history_image = self.config.qwen_r2r_dataset_cfg.if_reduce_history_image
         
         self.uniform_sample_history = self.config.qwen_r2r_dataset_cfg.uniform_sample_history
+
+        self.use_dissim = bool(self.config.qwen_r2r_dataset_cfg.get("use_dissim", False))
+        self.dissim_min = float(self.config.qwen_r2r_dataset_cfg.get("dissim_min", 0.5))
+        self.dissim_max = float(self.config.qwen_r2r_dataset_cfg.get("dissim_max", 1.5))
 
     def create_json_template(self):
         # Create the JSON template
@@ -351,19 +355,22 @@ class Json_Templater:
                 #     "agent_heading":priv_info["current_heading"][merged_indices[step][0]]
                 # }
                 
+                # Save long-format strings for dissim computation before conversion
+                action_str_long = action_str
+                reject_action_str_long = reject_action_str
+
                 action_str = STR_MAT_TO_CMD[action_str]
                 counter[action_str] += 1
                 reject_action_str = STR_MAT_TO_CMD[reject_action_str]
-                
-                
+
                 json_data ={
                     "messages": [
                         {
-                            "role": "system", 
+                            "role": "system",
                             "content": f"{header_str}"
                         },
                         {
-                            "role": "user", 
+                            "role": "user",
                             "content": f"{history_str}{current_str}{history_action_str}{task_str}"
                         },
                     ],
@@ -371,6 +378,14 @@ class Json_Templater:
                     "rejected":{"role": "assistant", "content": f"{reject_action_str}"},
                     "images": image_list,
                 }
+
+                if self.use_dissim:
+                    raw_dissim = compute_dissim(
+                        STR_TO_ACTIONS[action_str_long],
+                        STR_TO_ACTIONS[reject_action_str_long]
+                    )
+                    scaled_dissim = scale_dissim(raw_dissim, self.dissim_min, self.dissim_max)
+                    json_data["dissim"] = round(scaled_dissim, 4)
                 
                 # json_data = {
                 #     # "id": total_data_count,
