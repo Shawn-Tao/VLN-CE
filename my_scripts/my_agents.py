@@ -603,6 +603,8 @@ class QwenVLMAgent:
         pattern_str = r'^(?:move forward (?:\.\d+|\d+(?:\.\d*)?) meters|turn left \d+ degrees|turn right \d+ degrees|stop)$'
         str_bool = bool(re.match(pattern_str, command))
         pattern_cmd = r'^(?:move_forward (?:\.\d+|\d+(?:\.\d*)?)|turn_left \d+|turn_right \d+|stop)$'
+        # \d+(\.\d+)? 好像可以用来替换 (?:\.\d+|\d+(?:\.\d*)?)
+        
         # pattern_cmd = r'^(?:move_forward\s+(?:\.\d+|\d+(?:\.\d*)?)|turn_(?:left|right)\s+\d+|stop)$'
         cmd_bool = bool(re.match(pattern_cmd, command))
         if str_bool == True:
@@ -672,6 +674,18 @@ class QwenVLMAgent:
                 stop_match = re.search(r'stop', action_str)
                 # print("stop")
                 return HabitatSimActions.STOP, 1
+            
+def str_action_to_num(action_str):
+    if action_str == HabitatSimActions.STOP:
+        return 0
+    elif action_str == HabitatSimActions.MOVE_FORWARD: 
+        return 1
+    elif action_str == HabitatSimActions.TURN_LEFT:
+        return 2
+    elif action_str == HabitatSimActions.TURN_RIGHT:
+        return 3
+    else:
+        return 4
 
 
 def qwen_inference(config: Config, data_split:str) -> None:    
@@ -739,10 +753,12 @@ def qwen_inference(config: Config, data_split:str) -> None:
     episodes_count = 1
     
     episode_list = []
+    action_list = []
     
     for _ in tqdm(range(len(env.episodes)), desc=f"[inference:{split}]"):
         obs = env.reset()
         episode_id = env.current_episode.episode_id
+        action_list_in_episode = []
         
         # image_path = os.path.join(dirname, f"{episode_id}_{image_count}.jpg")
         # image_path = "output.jpg"
@@ -765,6 +781,7 @@ def qwen_inference(config: Config, data_split:str) -> None:
             if (repeat_count > 3):
                 print("Repeat too much times, stop")
                 obs = env.step(HabitatSimActions.STOP)
+                action_list_in_episode.append(str_action_to_num(HabitatSimActions.STOP))
                 break
             else:
                 # action,step = agent.act(obs[0])
@@ -777,8 +794,10 @@ def qwen_inference(config: Config, data_split:str) -> None:
         while not env.get_done(obs):
             for i in range(int(step)-1):
                 obs = env.step(action)
+                action_list_in_episode.append(str_action_to_num(action))
                 sim_step +=1
             obs = env.step(action)
+            action_list_in_episode.append(str_action_to_num(action))
             sim_step +=1
             action,step = agent.act(obs[0])
 
@@ -789,6 +808,7 @@ def qwen_inference(config: Config, data_split:str) -> None:
                 if (repeat_count > 3):
                     print("Repeat too much times, stop")
                     obs = env.step(HabitatSimActions.STOP)
+                    action_list_in_episode.append(str_action_to_num(HabitatSimActions.STOP))
                     break
                 else:
                     action,step = agent.act(obs[0])
@@ -810,6 +830,7 @@ def qwen_inference(config: Config, data_split:str) -> None:
             if(sim_step > 100 and not env.get_done(obs)):
                 print("Reach max sim step limit, break")
                 obs = env.step(HabitatSimActions.STOP)
+                action_list_in_episode.append(str_action_to_num(HabitatSimActions.STOP))
                 
             
             
@@ -848,6 +869,8 @@ def qwen_inference(config: Config, data_split:str) -> None:
         
         episode_list.append({"episode_id": episode_id , "total_steps":sim_step,"success":episode_stats["success"],"distance_to_goal":episode_stats["distance_to_goal"],"oracle_success":episode_stats["oracle_success"],"path_length":episode_stats["path_length"]})
         
+        action_list.append({"episode_id": episode_id, "actions": action_list_in_episode})
+        
 
             
     # with open(config.INFERENCE.PREDICTIONS_FILE, "w") as f:
@@ -867,5 +890,7 @@ def qwen_inference(config: Config, data_split:str) -> None:
     # 写入 episode_list 到文件
     with open(f"{output_dir}/episode_list_{config.EVAL.NONLEARNING.AGENT}_{split}.json", "w") as f:
         json.dump(episode_list, f, indent=4)
-    
-    
+        
+    # 写入 action_list 到文件
+    with open(f"{output_dir}/action_list_{config.EVAL.NONLEARNING.AGENT}_{split}.json", "w") as f:
+        json.dump(action_list, f, indent=4)    

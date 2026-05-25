@@ -15,6 +15,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'softmax
 from datetime import datetime
 
 from softmax_sample.reject_generate import ACTION_CLASS,sample_reject_action_softmax,STR_TO_ACTIONS,ACTIONS_TO_STR
+from collections import Counter
 
 
 STR_MAT_TO_CMD = {
@@ -214,6 +215,7 @@ class Json_Templater:
         end_time = time.time()
         
         total_stop_count = 0
+        counter = Counter()
         
         for folder in folder_list:
             folder_count += 1
@@ -253,6 +255,7 @@ class Json_Templater:
             else:
                 # 如果不需要缩小历史图像的分辨率，则将图片路径前缀改为path_prefix
                 self.prefix = self.path_prefix
+                
             
             # 每个动作生成一条数据
             for step in range(len(merged_actions)):
@@ -260,13 +263,6 @@ class Json_Templater:
                 # json_data= self.create_json_template()
                 action_str = self.action_to_str(merged_actions[step])
                 reject_action_str = "stop"
-                # print(action_str)
-
-                # json_assistant = {
-                #     "conversations": [
-
-                #     ]
-                # }
                 
                 header_str = ""
                 history_str = ""
@@ -327,7 +323,7 @@ class Json_Templater:
                     
                 #! 修改思路，当 distance_to_goal 小于一定值，将action_str修改为 "stop"，从而增加stop数据的数量。目前在 33w条数据中，stop数据仅有1w条左右，占比过少。
                 #! 再次修改，生成更加丰富的偏好数据集
-                tau = 3
+                tau = 15
                 # if(priv_info["distance_to_goal"][merged_indices[step][0]] < 1.6):
                 if(priv_info["distance_to_goal"][merged_indices[step][0]] < 1.1):
                     # print("change to stop")
@@ -356,6 +352,7 @@ class Json_Templater:
                 # }
                 
                 action_str = STR_MAT_TO_CMD[action_str]
+                counter[action_str] += 1
                 reject_action_str = STR_MAT_TO_CMD[reject_action_str]
                 
                 
@@ -418,6 +415,7 @@ class Json_Templater:
                 r2r_data_set_json.append(json_data)
         
         print("***************************************total_stop_count:",total_stop_count)
+        print(counter)
                 
         # save json_data using orjson
         

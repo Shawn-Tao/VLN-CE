@@ -1,7 +1,8 @@
 import socket
 import numpy as np
 import struct
-import pickle
+# import pickle
+import msgpack
 import zlib
 import cv2
 import time
@@ -40,6 +41,8 @@ RESP_ERROR = 0x02
 RESP_WARNING = 0x03
 RESP_PROCESSING = 0x04
 
+
+
 # ======================== 发送端实现 ========================
 class CommandImageSender:
     def __init__(self, host, port):
@@ -51,6 +54,13 @@ class CommandImageSender:
         self.response_thread = None
         self.running = False
         self.response_condition = threading.Condition()
+        
+    def _encode_image(self, img):
+        return {
+            "shape": img.shape,
+            "dtype": str(img.dtype),
+            "data": img.tobytes()
+        }
     
     # def connect(self):
     #     """连接到接收端"""
@@ -135,7 +145,8 @@ class CommandImageSender:
                 # 解压缩并反序列化响应
                 try:
                     decompressed = zlib.decompress(data)
-                    response = pickle.loads(decompressed)
+                    # response = pickle.loads(decompressed)
+                    response = msgpack.unpackb(decompressed, raw=False)
                     with self.response_condition:
                         self.response_queue.put(response)
                         self.response_condition.notify()  # 通知主线程
@@ -231,19 +242,37 @@ class CommandImageSender:
             logger.error("无有效图像可发送")
             return False
         
+        # try:
+        #     # 序列化数据
+        #     if include_command and self.pending_command:
+        #         # 发送指令+图像
+        #         data_to_send = (self.pending_command, valid_images)
+        #         self.pending_command = None  # 清除待发送指令
+        #         serialized = pickle.dumps(data_to_send)
+        #         header = CMD_HEADER
+        #     else:
+        #         # 仅发送图像
+        #         data_to_send = valid_images
+        #         serialized = pickle.dumps(data_to_send)
+        #         header = IMG_HEADER
+        
         try:
-            # 序列化数据
+            # ===== 构造 msgpack 数据 =====
             if include_command and self.pending_command:
-                # 发送指令+图像
-                data_to_send = (self.pending_command, valid_images)
-                self.pending_command = None  # 清除待发送指令
-                serialized = pickle.dumps(data_to_send)
+                payload = {
+                    "command": self.pending_command,
+                    "images": [self._encode_image(img) for img in valid_images]
+                }
+                self.pending_command = None
                 header = CMD_HEADER
             else:
-                # 仅发送图像
-                data_to_send = valid_images
-                serialized = pickle.dumps(data_to_send)
+                payload = {
+                    "images": [self._encode_image(img) for img in valid_images]
+                }
                 header = IMG_HEADER
+
+            # ===== msgpack 序列化 =====
+            serialized = msgpack.packb(payload, use_bin_type=True)
             
             # 压缩数据
             compressed = zlib.compress(serialized)
