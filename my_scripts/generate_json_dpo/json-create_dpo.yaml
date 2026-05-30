@@ -2,7 +2,7 @@ qwen_r2r_dataset_cfg:
 
   # Json文件保存路径
   # json_file_save_path: "r2r_train_424_240.json"
-  json_file_save_path: "r2r_orpo_train_424_240_qwen3vl_1p1_tau15_dissim.jsonl"
+  json_file_save_path: "r2r_orpo_train_424_240_qwen3vl_1p1_tau15_dissim_0p8_1p2.jsonl"
   # 图像数据集路径
   # dataset_file_path: "/home/sy1106/HDD/TZL/LLM-VLM/LLaMA-Factory/data/vln_datasets/r2r_train_424_240"
   dataset_file_path: "/home/sy1106/HDD/TZL/LLM-VLM/datasets/rl_vln/r2r_train_424_240"
@@ -10,6 +10,7 @@ qwen_r2r_dataset_cfg:
   # Json文件中，图像路径前缀；Docker中路径可能与本机不同。
   # 以下两个文件夹中的构造是相同的，但是图片大小不一样，这是为了减少历史信息的token数
   path_prefix: "/LLM-VLM/datasets/rl_vln/r2r_train_424_240"
+  # path_prefix: "/wsl_user_dir/workspace/datasets/rl_vln/r2r_train_424_240"
   reduced_image_path_prefix: "data/vln_datasets/r2r_train_112_56"
   # 是否缩减历史图像
   if_reduce_history_image: False
@@ -22,8 +23,8 @@ qwen_r2r_dataset_cfg:
 
   # Dissimilarity range for preference pair weight (scaled from motion embedding distance)
   use_dissim: True
-  dissim_min: 0.5
-  dissim_max: 1.5
+  dissim_min: 0.8
+  dissim_max: 1.2
   
   # dataset_file_path: "/home/sy1106/HDD/TZL/VLN/latest_version/my_habitat-sample/utils/images"
   # dataset_file_path: "/home/sy1106/HDD/TZL/VLN/latest_version/my_habitat-sample/examples/images/r2r_train"

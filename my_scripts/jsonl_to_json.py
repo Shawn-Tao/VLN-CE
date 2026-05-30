@@ -1,7 +1,7 @@
 import json
 
-input_file = "20260525_172807_r2r_orpo_train_424_240_qwen3vl_1p1_tau15_dissim.jsonl"
-output_file = "20260525_172807_r2r_orpo_train_424_240_qwen3vl_1p1_tau15_dissim.json"
+input_file = "20260529_093220_r2r_orpo_train_424_240_qwen3vl_1p1_tau15_dissim_0p8_1p2.jsonl"
+output_file = "20260529_093220_r2r_orpo_train_424_240_qwen3vl_1p1_tau15_dissim_0p8_1p2.json"
 
 data = []
 with open(input_file, "r", encoding="utf-8") as f:
